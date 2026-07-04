@@ -16,41 +16,98 @@ services:
       timeout: 3s
       retries: 10
 
-  api:
+  # ---- service discovery (Eureka-style registry) ----
+  registry:
     build: ./backend
-    environment: &backend_env
-      DATABASE_URL: postgresql+psycopg2://scheduler:scheduler@postgres:5432/scheduler
-      JWT_SECRET: dev-secret-change-me
+    command: uvicorn app.registry:app --host 0.0.0.0 --port 8761
+    ports:
+      - "8761:8761"
+
+  # ---- API gateway: single entry point, discovery-based load balancing ----
+  gateway:
+    build: ./backend
+    command: uvicorn app.gateway:app --host 0.0.0.0 --port 8000
+    environment:
+      REGISTRY_URL: http://registry:8761
     ports:
       - "8000:8000"
     depends_on:
+      - registry
+
+  # ---- domain microservices ----
+  identity-service:
+    build: ./backend
+    command: uvicorn app.microservice:app --host 0.0.0.0 --port 8000
+    environment: &service_env
+      DATABASE_URL: postgresql+psycopg2://scheduler:scheduler@postgres:5432/scheduler
+      JWT_SECRET: dev-secret-change-me
+      REGISTRY_URL: http://registry:8761
+      SERVICE_PORT: "8000"
+      SERVICE_NAME: identity-service
+    depends_on:
       postgres:
         condition: service_healthy
+      registry:
+        condition: service_started
+    # SERVICE_NAME is per-service; SERVICE_HOST defaults to the container
+    # hostname, which is routable on the compose network.
 
+  job-service:
+    build: ./backend
+    command: uvicorn app.microservice:app --host 0.0.0.0 --port 8000
+    environment:
+      <<: *service_env
+      SERVICE_NAME: job-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      registry:
+        condition: service_started
+    deploy:
+      replicas: 2   # gateway round-robins across instances
+
+  monitoring-service:
+    build: ./backend
+    command: uvicorn app.microservice:app --host 0.0.0.0 --port 8000
+    environment:
+      <<: *service_env
+      SERVICE_NAME: monitoring-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      registry:
+        condition: service_started
+
+  # ---- background services ----
   worker:
     build: ./backend
     command: python -m app.worker
-    environment: *backend_env
+    environment:
+      <<: *service_env
+      SERVICE_NAME: worker-service
     depends_on:
       postgres:
         condition: service_healthy
     deploy:
-      replicas: 2   # scale with: docker compose up --scale worker=4
+      replicas: 2   # scale with: docker compose up -d --scale worker=4
 
   scheduler:
     build: ./backend
     command: python -m app.scheduler
-    environment: *backend_env
+    environment:
+      <<: *service_env
+      SERVICE_NAME: scheduler-service
     depends_on:
       postgres:
         condition: service_healthy
 
+  # ---- dashboard ----
   frontend:
     build: ./frontend
     ports:
       - "5173:80"
     depends_on:
-      - api
+      - gateway
 
 volumes:
   pgdata:

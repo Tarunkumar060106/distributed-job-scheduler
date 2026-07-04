@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { STATUS_COLORS, overviewSocket } from "../api";
+import { overviewSocket, STATUS_COLORS } from "../api";
+import { PageHead } from "../ui";
 
 interface Snapshot {
   job_counts: Record<string, number>;
@@ -14,23 +15,32 @@ export default function Overview() {
   const [live, setLive] = useState(false);
 
   useEffect(() => {
-    // Live updates over WebSocket, pushed by the API every 2 seconds.
+    // Live updates over WebSocket, relayed through the API gateway.
     const ws = overviewSocket((data) => { setSnap(data); setLive(true); });
     ws.onclose = () => setLive(false);
     return () => ws.close();
   }, []);
 
-  if (!snap) return <h2>Loading overview…</h2>;
+  if (!snap) {
+    return <PageHead title="Overview" sub="Connecting to the live feed…" />;
+  }
 
   const bars = snap.throughput;
   const max = Math.max(1, ...bars.map((b) => b.completed));
+  const workersOnline = snap.worker_counts.ONLINE ?? 0;
 
   return (
     <div>
-      <h2>
-        System Overview{" "}
-        <span className="muted">{live ? "● live (WebSocket)" : "○ disconnected"}</span>
-      </h2>
+      <PageHead
+        title="Overview"
+        sub={`${workersOnline} worker${workersOnline === 1 ? "" : "s"} online`}
+        right={
+          <span className="live-indicator">
+            <span className={`dot ${live ? "on" : "off"}`} />
+            {live ? "Live" : "Reconnecting"}
+          </span>
+        }
+      />
       <div className="cards">
         {CARD_ORDER.map((status) => (
           <div className="card" key={status}>
@@ -42,13 +52,14 @@ export default function Overview() {
         ))}
       </div>
       <div className="panel">
-        <h3>Completed jobs per minute (last 30 min)</h3>
+        <h3>Completed jobs per minute — last 30 minutes</h3>
         {bars.length === 0 ? (
-          <div className="muted">No completions yet — create some jobs.</div>
+          <div className="empty">No completions in this window yet.</div>
         ) : (
           <div className="chart-bars">
             {bars.map((bar) => (
-              <div key={bar.minute} className="bar" title={`${bar.minute}: ${bar.completed}`}
+              <div key={bar.minute} className="bar"
+                   title={`${new Date(bar.minute).toLocaleTimeString()} — ${bar.completed} completed`}
                    style={{ height: `${(bar.completed / max) * 100}%` }} />
             ))}
           </div>
@@ -57,7 +68,7 @@ export default function Overview() {
       <div className="cards">
         {Object.entries(snap.worker_counts).map(([status, count]) => (
           <div className="card" key={status}>
-            <div className="label">Workers {status}</div>
+            <div className="label">Workers · {status}</div>
             <div className="value" style={{ color: STATUS_COLORS[status] }}>{count}</div>
           </div>
         ))}

@@ -29,7 +29,8 @@ export default function Login() {
   return (
     <div className="auth-wrap">
       <form className="auth-box" onSubmit={submit}>
-        <h1>⚡ Job Scheduler</h1>
+        <div className="brand">Meridian</div>
+        <div className="tagline">Distributed job scheduling, done properly.</div>
         {mode === "register" && (
           <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
         )}
@@ -39,7 +40,7 @@ export default function Login() {
                onChange={(e) => setPassword(e.target.value)} required minLength={8} />
         <button type="submit">{mode === "login" ? "Sign in" : "Create account"}</button>
         {error && <div className="error">{error}</div>}
-        <a href="#" className="muted" onClick={(e) => {
+        <a href="#" className="switch" onClick={(e) => {
           e.preventDefault();
           setMode(mode === "login" ? "register" : "login");
         }}>

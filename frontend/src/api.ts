@@ -43,16 +43,16 @@ export function overviewSocket(onMessage: (data: any) => void): WebSocket {
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  QUEUED: "#f59e0b",
-  SCHEDULED: "#8b5cf6",
-  CLAIMED: "#06b6d4",
-  RUNNING: "#3b82f6",
-  COMPLETED: "#22c55e",
-  FAILED: "#ef4444",
-  DEAD_LETTER: "#991b1b",
-  CANCELLED: "#6b7280",
-  ONLINE: "#22c55e",
-  DRAINING: "#f59e0b",
-  OFFLINE: "#6b7280",
-  DEAD: "#ef4444",
+  QUEUED: "#b45309",
+  SCHEDULED: "#6d28d9",
+  CLAIMED: "#0e7490",
+  RUNNING: "#1e40af",
+  COMPLETED: "#15803d",
+  FAILED: "#b91c1c",
+  DEAD_LETTER: "#7f1d1d",
+  CANCELLED: "#57534e",
+  ONLINE: "#15803d",
+  DRAINING: "#b45309",
+  OFFLINE: "#57534e",
+  DEAD: "#b91c1c",
 };
