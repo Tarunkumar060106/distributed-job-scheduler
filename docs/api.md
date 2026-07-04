@@ -1,7 +1,17 @@
 # API Guide
 
-Interactive documentation (Swagger UI, auto-generated from the code) lives at
-**http://localhost:8000/docs** — every endpoint is testable there.
+All traffic enters through the **API gateway** on http://localhost:8000; it
+routes each path to the owning microservice (identity / job / monitoring)
+via the service registry. Interactive Swagger docs are served per service —
+the gateway proxies `/docs` of the job-service; each service also exposes its
+own `/docs` when run directly.
+
+Gateway-specific endpoints:
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/health` | gateway liveness |
+| GET | `/api/gateway/services` | live service catalog from the registry |
 
 ## Conventions
 

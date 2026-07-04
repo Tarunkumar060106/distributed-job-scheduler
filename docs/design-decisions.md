@@ -1,5 +1,35 @@
 # Design Decisions & Trade-offs
 
+## 0. Microservices as a modular monolith deployment
+
+The backend deploys as six independent processes — gateway, registry,
+identity-service, job-service (replicated), monitoring-service, plus the
+worker fleet and scheduler — but the domain code lives in one package, and
+`SERVICE_NAME` selects which routers a process serves.
+
+**Why this shape:**
+- Each concern scales independently (job-service ×2 and worker ×2 in the
+  default compose) and fails independently (killing a job-service replica
+  loses zero requests — the gateway retries the other instance).
+- One codebase means shared models, shared tests, and no premature contract
+  duplication. Extracting a service into its own repo later is a `git mv`,
+  not a rewrite. This is the migration path Shopify/Stripe-style modular
+  monoliths take, run in reverse order.
+
+**Why a custom registry instead of Consul/Eureka:** the registry pattern
+(register, renew lease, evict on expiry, client-side LB) fits in ~90 lines of
+FastAPI, adds zero infrastructure, and demonstrates the mechanism rather than
+a vendor dependency. In production I'd swap it for Consul (or platform-native
+discovery — Kubernetes Services make a registry redundant); only
+`app/discovery.py` would change.
+
+**Deliberate trade-off — shared database:** the services share one Postgres
+with code-enforced ownership boundaries rather than database-per-service.
+Splitting the DB requires either cross-service APIs for membership checks on
+every request or event-carried replication of identity data — real costs that
+buy nothing at this scale. The boundary that *matters* for correctness
+(atomic job claiming) is already a single-owner concern of the claim SQL.
+
 ## 1. PostgreSQL as the queue (no Redis/RabbitMQ)
 
 **Decision:** jobs live in Postgres and workers claim them with
