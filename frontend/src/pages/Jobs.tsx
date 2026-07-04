@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, STATUS_COLORS } from "../api";
+import { api } from "../api";
 import { useProject } from "../App";
+import { Badge, PageHead } from "../ui";
 
 const STATUSES = ["", "QUEUED", "SCHEDULED", "RUNNING", "COMPLETED", "FAILED",
   "DEAD_LETTER", "CANCELLED"];
@@ -56,7 +57,8 @@ export default function Jobs() {
 
   return (
     <div>
-      <h2>Job Explorer</h2>
+      <PageHead title="Jobs"
+                sub="Inspect, filter, and enqueue jobs across your queues." />
       <div className="panel">
         <div className="row">
           <select value={queueId} onChange={(e) => { setQueueId(e.target.value); setPage(1); }}>
@@ -84,9 +86,8 @@ export default function Jobs() {
           <tbody>
             {data?.items.map((job: any) => (
               <tr key={job.id}>
-                <td><Link to={`/jobs/${job.id}`} style={{ color: "#60a5fa" }}>{job.task}</Link></td>
-                <td><span className="badge" style={{ background: STATUS_COLORS[job.status] }}>
-                  {job.status}</span></td>
+                <td><Link to={`/jobs/${job.id}`}>{job.task}</Link></td>
+                <td><Badge status={job.status} /></td>
                 <td>{job.type}</td>
                 <td>{job.priority}</td>
                 <td>{job.attempt}/{job.max_attempts}</td>
