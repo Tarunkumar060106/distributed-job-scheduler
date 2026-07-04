@@ -14,9 +14,11 @@ logging.basicConfig(
 logger = logging.getLogger("scheduler.api")
 
 app = FastAPI(
-    title="Distributed Job Scheduler",
-    description="Production-inspired distributed job scheduling platform. "
-                "Auth via Bearer JWT from /api/auth/login.",
+    title="Distributed Job Scheduler (all-in-one)",
+    description="All routers in one process — used by the test suite and for "
+                "quick local development. Production deployment splits these "
+                "across identity/job/monitoring services behind the gateway "
+                "(see app/microservice.py and app/gateway.py).",
     version="1.0.0",
 )
 

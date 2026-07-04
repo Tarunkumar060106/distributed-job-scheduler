@@ -90,6 +90,9 @@ def prune_heartbeats(db) -> None:
 def run() -> None:
     Base.metadata.create_all(bind=engine)
 
+    from app.discovery import ServiceRegistration
+    ServiceRegistration("scheduler-service", port=0).start()
+
     def request_shutdown(signum, frame):
         shutdown.set()
 

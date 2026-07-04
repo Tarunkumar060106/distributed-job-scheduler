@@ -120,6 +120,14 @@ class WorkerService:
         Base.metadata.create_all(bind=engine)
         self.register()
 
+        # Announce ourselves in the service registry (observability; workers
+        # take no inbound traffic, so port is informational only).
+        from app.discovery import ServiceRegistration
+        registry_reg = ServiceRegistration(
+            "worker-service", port=0,
+            meta={"name": self.name, "concurrency": self.concurrency})
+        registry_reg.start()
+
         heartbeat = threading.Thread(target=self.heartbeat_loop, daemon=True)
         heartbeat.start()
 

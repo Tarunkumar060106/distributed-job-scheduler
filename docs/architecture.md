@@ -1,5 +1,7 @@
 # Architecture
 
+Microservice deployment with an API gateway and Eureka-style service discovery.
+
 ```mermaid
 flowchart LR
     subgraph Clients
@@ -7,44 +9,76 @@ flowchart LR
         CLI[API Clients]
     end
 
-    subgraph API["API Server (FastAPI)"]
-        REST[REST API<br/>auth · projects · queues · jobs]
-        WS[WebSocket<br/>live overview]
+    GW["API Gateway :8000<br/>routing · discovery LB · retry · WS relay"]
+    REG["Service Registry :8761<br/>register · heartbeat · lease eviction"]
+
+    subgraph Services["Domain services (scale each independently)"]
+        IDS["identity-service<br/>auth · orgs · projects"]
+        JS1["job-service ×N<br/>queues · jobs · DLQ"]
+        MON["monitoring-service<br/>stats · WebSocket feed"]
     end
 
-    subgraph Workers["Worker Fleet (scale N)"]
-        W1[Worker 1<br/>claim → execute → heartbeat]
-        W2[Worker 2]
-        WN[Worker N]
-    end
-
-    subgraph Scheduler["Scheduler (active/standby)"]
-        PROM[Promote due jobs]
-        CRON[Materialize cron jobs]
-        REAP[Reap dead workers]
+    subgraph Background
+        W1["worker ×N<br/>claim → execute → heartbeat"]
+        SCH["scheduler (active/standby)<br/>promote · cron · reaper"]
     end
 
     PG[(PostgreSQL<br/>single source of truth)]
 
-    UI -->|HTTP + WS| REST
-    UI --> WS
-    CLI --> REST
-    REST --> PG
-    WS --> PG
+    UI --> GW
+    CLI --> GW
+    GW -->|resolve| REG
+    IDS -.->|register + renew| REG
+    JS1 -.-> REG
+    MON -.-> REG
+    W1 -.-> REG
+    SCH -.-> REG
+    GW --> IDS
+    GW --> JS1
+    GW --> MON
+    IDS --> PG
+    JS1 --> PG
+    MON --> PG
     W1 -->|FOR UPDATE SKIP LOCKED| PG
-    W2 --> PG
-    WN --> PG
-    PROM --> PG
-    CRON --> PG
-    REAP --> PG
-    Scheduler -.->|pg_try_advisory_lock| PG
+    SCH --> PG
+    SCH -.->|pg_try_advisory_lock| PG
 ```
 
-## Components
+## Edge components
 
-**API server** (`app/main.py`) — stateless FastAPI process serving the REST API
-and a WebSocket that pushes system snapshots every 2s. Scales horizontally
-behind any load balancer; all state lives in Postgres.
+**Service registry** (`app/registry.py`, :8761) — the Eureka analogue.
+Services register on startup, renew a 30s lease with heartbeats, and are
+lazily evicted when the lease expires — so a crashed instance drops out of
+routing automatically. State is deliberately in-memory: the registry must not
+depend on the database it helps other services reach.
+
+**API gateway** (`app/gateway.py`, :8000) — the single entry point.
+Longest-prefix routing table maps paths to owning services; instances are
+resolved through the registry with a 5s local cache and round-robined
+(client-side load balancing, like Spring Cloud Gateway + Ribbon). Connect
+failures invalidate the cache and retry the next healthy instance — verified:
+10/10 requests succeed while a job-service replica is killed mid-traffic.
+Also relays the dashboard's WebSocket to the monitoring service.
+
+**Discovery client** (`app/discovery.py`) — shared by every service:
+registration + lease renewal in a daemon thread (with re-registration if the
+registry restarts and loses the lease), and consumer-side resolution with
+stale-if-error fallback.
+
+## Domain services
+
+All three are built from the same codebase by `app/microservice.py`
+(`SERVICE_NAME` selects the router set) — a modular monolith deployed as
+microservices:
+
+| Service | Owns |
+|---|---|
+| `identity-service` | auth, users, organizations, members, projects |
+| `job-service` | retry policies, queues, jobs, DLQ, worker listing (replicated ×2) |
+| `monitoring-service` | system stats, live WebSocket feed |
+
+`app/main.py` still assembles all routers in one process — used by the test
+suite and for quick local development.
 
 **Worker service** (`app/worker.py`) — a separate deployable. Loop:
 
