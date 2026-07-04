@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, STATUS_COLORS } from "../api";
+import { api } from "../api";
 import { useProject } from "../App";
+import { Badge, PageHead } from "../ui";
 
 export default function Workers() {
   const { projectId } = useProject();
@@ -35,7 +36,8 @@ export default function Workers() {
 
   return (
     <div>
-      <h2>Workers</h2>
+      <PageHead title="Workers"
+                sub="Fleet status, heartbeats, and the dead letter queue." />
       <div className="panel">
         <table>
           <thead>
@@ -46,8 +48,7 @@ export default function Workers() {
             {workers.map((w) => (
               <tr key={w.id}>
                 <td>{w.name}</td>
-                <td><span className="badge" style={{ background: STATUS_COLORS[w.status] }}>
-                  {w.status}</span></td>
+                <td><Badge status={w.status} /></td>
                 <td>{w.concurrency}</td>
                 <td>{w.jobs_processed}</td>
                 <td>{w.jobs_failed}</td>
@@ -56,11 +57,12 @@ export default function Workers() {
             ))}
           </tbody>
         </table>
-        {workers.length === 0 && <div className="muted" style={{ padding: 12 }}>
+        {workers.length === 0 && <div className="empty">
           No workers registered — start one with <code>python -m app.worker</code>.</div>}
       </div>
 
-      <h2>Dead Letter Queue</h2>
+      <PageHead title="Dead letter queue"
+                sub="Jobs that exhausted every retry. Requeue restarts them with a clean slate." />
       <div className="panel">
         <div className="row" style={{ marginBottom: 10 }}>
           <select value={queueId} onChange={(e) => setQueueId(e.target.value)}>
@@ -75,7 +77,7 @@ export default function Workers() {
             {dlq.map((entry) => (
               <tr key={entry.id}>
                 <td className="muted">{entry.job_id.slice(0, 8)}</td>
-                <td className="error">{entry.error}</td>
+                <td style={{ color: "var(--red)" }}>{entry.error}</td>
                 <td>{entry.attempts_made}</td>
                 <td className="muted">{new Date(entry.created_at).toLocaleTimeString()}</td>
                 <td>
@@ -87,7 +89,7 @@ export default function Workers() {
             ))}
           </tbody>
         </table>
-        {dlq.length === 0 && <div className="muted" style={{ padding: 12 }}>Dead letter queue is empty. 🎉</div>}
+        {dlq.length === 0 && <div className="empty">The dead letter queue is empty.</div>}
       </div>
     </div>
   );

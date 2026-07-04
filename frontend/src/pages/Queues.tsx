@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { useProject } from "../App";
+import { Badge, PageHead } from "../ui";
 
 export default function Queues() {
   const { projectId } = useProject();
@@ -44,7 +45,8 @@ export default function Queues() {
 
   return (
     <div>
-      <h2>Queues</h2>
+      <PageHead title="Queues"
+                sub="Per-queue concurrency limits, retry policies, and live statistics." />
       <div className="panel">
         <form className="row" onSubmit={createQueue}>
           <input placeholder="New queue name" value={name}
@@ -68,10 +70,8 @@ export default function Queues() {
               return (
                 <tr key={queue.id}>
                   <td>{queue.name}</td>
-                  <td>{queue.paused
-                    ? <span className="badge" style={{ background: "#f59e0b" }}>PAUSED</span>
-                    : <span className="badge" style={{ background: "#22c55e" }}>ACTIVE</span>}
-                  </td>
+                  <td><Badge status={queue.paused ? "DRAINING" : "ONLINE"}
+                             label={queue.paused ? "PAUSED" : "ACTIVE"} /></td>
                   <td>{queue.max_concurrency}</td>
                   <td>{s?.counts.QUEUED ?? "–"}</td>
                   <td>{(s?.counts.RUNNING ?? 0) + (s?.counts.CLAIMED ?? 0)}</td>
@@ -89,7 +89,8 @@ export default function Queues() {
             })}
           </tbody>
         </table>
-        {queues.length === 0 && <div className="muted" style={{ padding: 12 }}>No queues yet.</div>}
+        {queues.length === 0 &&
+          <div className="empty">No queues yet — create your first one above.</div>}
       </div>
     </div>
   );

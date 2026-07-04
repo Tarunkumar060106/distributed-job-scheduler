@@ -20,13 +20,19 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="layout">
       <nav className="sidebar">
-        <h1>⚡ Job Scheduler</h1>
+        <div className="brand">
+          Meridian
+          <small>Job Scheduler</small>
+        </div>
+        <div className="nav-label">Monitor</div>
         <NavLink to="/" end>Overview</NavLink>
+        <NavLink to="/workers">Workers</NavLink>
+        <div className="nav-label">Manage</div>
         <NavLink to="/queues">Queues</NavLink>
         <NavLink to="/jobs">Jobs</NavLink>
-        <NavLink to="/workers">Workers</NavLink>
         <div className="spacer" />
-        <a href="#" onClick={(e) => { e.preventDefault(); setToken(null); navigate("/login"); }}>
+        <a href="#" className="signout"
+           onClick={(e) => { e.preventDefault(); setToken(null); navigate("/login"); }}>
           Sign out
         </a>
       </nav>
