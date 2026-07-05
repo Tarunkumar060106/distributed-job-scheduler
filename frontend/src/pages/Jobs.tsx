@@ -6,7 +6,13 @@ import { Badge, PageHead } from "../ui";
 
 const STATUSES = ["", "QUEUED", "SCHEDULED", "RUNNING", "COMPLETED", "FAILED",
   "DEAD_LETTER", "CANCELLED"];
-const TASKS = ["echo", "sleep", "send_email", "flaky", "always_fail"];
+
+interface TaskEntry {
+  name: string;
+  description: string;
+  idempotent: boolean;
+  example: Record<string, unknown>;
+}
 
 export default function Jobs() {
   const { projectId } = useProject();
@@ -15,7 +21,9 @@ export default function Jobs() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<any>(null);
-  const [newTask, setNewTask] = useState("echo");
+  const [tasks, setTasks] = useState<TaskEntry[]>([]);
+  const [taskName, setTaskName] = useState("");
+  const [payloadText, setPayloadText] = useState("{}");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -23,6 +31,14 @@ export default function Jobs() {
     api(`/projects/${projectId}/queues`).then((qs) => {
       setQueues(qs);
       if (qs.length && !queueId) setQueueId(qs[0].id);
+    });
+    // Task catalog comes from the worker fleet's registered handler packs.
+    api("/tasks").then((entries: TaskEntry[]) => {
+      setTasks(entries);
+      if (entries.length && !taskName) {
+        setTaskName(entries[0].name);
+        setPayloadText(JSON.stringify(entries[0].example, null, 2));
+      }
     });
   }, [projectId]);
 
@@ -39,15 +55,27 @@ export default function Jobs() {
     return () => clearInterval(timer);
   }, [refresh]);
 
+  const selectedTask = tasks.find((t) => t.name === taskName);
+
+  function pickTask(name: string) {
+    setTaskName(name);
+    const entry = tasks.find((t) => t.name === name);
+    setPayloadText(JSON.stringify(entry?.example ?? {}, null, 2));
+  }
+
   async function createJob(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    let payload: unknown;
     try {
-      const payload = newTask === "flaky" ? { failure_rate: 0.5 }
-        : newTask === "sleep" ? { seconds: 2 }
-        : newTask === "send_email" ? { to: "demo@example.com" } : {};
+      payload = JSON.parse(payloadText || "{}");
+    } catch {
+      setError("Payload is not valid JSON.");
+      return;
+    }
+    try {
       await api(`/queues/${queueId}/jobs`, {
-        method: "POST", body: { task: newTask, payload },
+        method: "POST", body: { task: taskName, payload },
       });
       refresh();
     } catch (err: any) { setError(err.message); }
@@ -59,25 +87,47 @@ export default function Jobs() {
     <div>
       <PageHead title="Jobs"
                 sub="Inspect, filter, and enqueue jobs across your queues." />
+
       <div className="panel">
-        <div className="row">
-          <select value={queueId} onChange={(e) => { setQueueId(e.target.value); setPage(1); }}>
-            {queues.map((q) => <option key={q.id} value={q.id}>{q.name}</option>)}
-          </select>
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            {STATUSES.map((s) => <option key={s} value={s}>{s || "All statuses"}</option>)}
-          </select>
-          <span className="spacer" style={{ flex: 1 }} />
-          <form className="row" onSubmit={createJob}>
-            <select value={newTask} onChange={(e) => setNewTask(e.target.value)}>
-              {TASKS.map((t) => <option key={t}>{t}</option>)}
+        <h3>Enqueue a job</h3>
+        <div className="row" style={{ alignItems: "flex-start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 220 }}>
+            <select value={queueId} onChange={(e) => { setQueueId(e.target.value); setPage(1); }}>
+              {queues.map((q) => <option key={q.id} value={q.id}>queue: {q.name}</option>)}
             </select>
-            <button type="submit" disabled={!queueId}>Enqueue demo job</button>
+            <select value={taskName} onChange={(e) => pickTask(e.target.value)}>
+              {tasks.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+            </select>
+            {selectedTask && (
+              <span className="muted">
+                {selectedTask.description}
+                {!selectedTask.idempotent && " · not idempotent"}
+              </span>
+            )}
+          </div>
+          <form onSubmit={createJob}
+                style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            <textarea
+              className="payload-editor"
+              rows={5}
+              value={payloadText}
+              onChange={(e) => setPayloadText(e.target.value)}
+              spellCheck={false}
+            />
+            <div className="row">
+              <button type="submit" disabled={!queueId || !taskName}>Enqueue job</button>
+              {error && <span className="error" style={{ marginTop: 0 }}>{error}</span>}
+            </div>
           </form>
         </div>
-        {error && <div className="error">{error}</div>}
       </div>
+
       <div className="panel">
+        <div className="row" style={{ marginBottom: 12 }}>
+          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+            {STATUSES.map((s) => <option key={s} value={s}>{s ? s.replace("_", " ") : "All statuses"}</option>)}
+          </select>
+        </div>
         <table>
           <thead>
             <tr><th>Task</th><th>Status</th><th>Type</th><th>Priority</th>
@@ -98,9 +148,11 @@ export default function Jobs() {
             ))}
           </tbody>
         </table>
-        <div className="row" style={{ marginTop: 12 }}>
+        {data && data.total === 0 &&
+          <div className="empty">No jobs match this filter yet.</div>}
+        <div className="row" style={{ marginTop: 14 }}>
           <button className="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-          <span className="muted">page {page} / {totalPages} · {data?.total ?? 0} jobs</span>
+          <span className="muted">page {page} of {totalPages} · {data?.total ?? 0} jobs</span>
           <button className="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button>
         </div>
       </div>

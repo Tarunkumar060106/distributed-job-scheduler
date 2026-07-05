@@ -317,6 +317,26 @@ input::placeholder { color: var(--faint); }
 }
 .chart-bars .bar:hover { opacity: 0.5; }
 
+/* workspace switcher + payload editor */
+.workspace-picker { display: flex; flex-direction: column; gap: 6px; padding: 2px 12px 8px; }
+.workspace-picker select { width: 100%; font-size: 0.8rem; padding: 6px 8px; }
+.role-chip { color: var(--faint); font-size: 0.72rem; padding: 0 12px 10px; }
+.role-chip strong { color: var(--muted); }
+
+textarea.payload-editor {
+  width: 100%;
+  background: #1c1917;
+  color: #d6d3cd;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+textarea.payload-editor:focus { outline: none; border-color: var(--accent); }
+
 /* key-value tables on detail pages */
 .kv th { width: 130px; text-transform: none; letter-spacing: 0; font-size: 0.8rem; color: var(--muted); font-weight: 500; padding: 9px 10px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
 .kv tr:last-child th, .kv tr:last-child td { border-bottom: none; }

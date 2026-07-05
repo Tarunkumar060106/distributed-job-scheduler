@@ -51,6 +51,7 @@ Gateway-specific endpoints:
 ### Jobs
 | Method | Path | Notes |
 |---|---|---|
+| GET | `/api/tasks` | handler catalog of the worker fleet (name, description, JSON schema, example, idempotency) |
 | POST | `/api/queues/{id}/jobs` | immediate; `type=DELAYED` + `delay_seconds` / `run_at`; `type=SCHEDULED` + `run_at`; optional `idempotency_key`, `priority` |
 | POST | `/api/queues/{id}/jobs/batch` | up to 1000, share a `batch_id` |
 | POST | `/api/queues/{id}/scheduled-jobs` | recurring: `cron_expr` (validated) |
