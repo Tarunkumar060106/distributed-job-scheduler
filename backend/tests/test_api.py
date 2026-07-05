@@ -2,6 +2,20 @@
 import uuid
 
 
+def test_demo_accounts_are_seeded_with_roles(client):
+    """One demo login per RBAC role, all in the shared demo org."""
+    expected = {"owner@demo.io": "OWNER", "admin@demo.io": "ADMIN",
+                "member@demo.io": "MEMBER", "viewer@demo.io": "VIEWER"}
+    for email, role in expected.items():
+        r = client.post("/api/auth/login",
+                        json={"email": email, "password": "demo1234"})
+        assert r.status_code == 200, email
+        headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+        orgs = client.get("/api/orgs", headers=headers).json()
+        demo_org = next(o for o in orgs if "Demo" in o["name"])
+        assert demo_org["my_role"] == role
+
+
 def test_endpoints_require_auth(client):
     assert client.get("/api/orgs").status_code == 401
     assert client.get("/api/workers").status_code == 401
