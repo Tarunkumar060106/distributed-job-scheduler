@@ -174,6 +174,7 @@ class JobOut(ORMModel):
     idempotency_key: str | None
     batch_id: uuid.UUID | None
     worker_id: uuid.UUID | None
+    worker_name: str | None = None
     result: dict | None
     last_error: str | None
     created_at: datetime
@@ -192,6 +193,7 @@ class JobLogOut(ORMModel):
 class ExecutionOut(ORMModel):
     id: uuid.UUID
     worker_id: uuid.UUID | None
+    worker_name: str | None = None
     attempt: int
     status: ExecutionStatus
     started_at: datetime
@@ -215,6 +217,13 @@ class ScheduledJobOut(ORMModel):
 
 
 # ---- workers / dlq ----
+class CurrentJob(BaseModel):
+    job_id: uuid.UUID
+    task: str
+    status: JobStatus
+    started_at: datetime | None
+
+
 class WorkerOut(ORMModel):
     id: uuid.UUID
     name: str
@@ -226,6 +235,7 @@ class WorkerOut(ORMModel):
     last_heartbeat_at: datetime
     jobs_processed: int
     jobs_failed: int
+    current_jobs: list[CurrentJob] = []
 
 
 class DeadLetterOut(ORMModel):
