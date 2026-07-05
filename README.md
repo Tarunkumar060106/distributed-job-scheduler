@@ -5,8 +5,24 @@ backend: API gateway, Eureka-style service discovery, independently scalable
 domain services and workers, a standby-capable scheduler, and a live web
 dashboard — built on FastAPI, PostgreSQL, and React.
 
-![Architecture](docs/architecture.md) · [ER diagram](docs/er-diagram.md) ·
+[Architecture](docs/architecture.md) · [ER diagram](docs/er-diagram.md) ·
 [Design decisions](docs/design-decisions.md) · [API docs](docs/api.md)
+
+## Architecture at a glance
+
+![Architecture diagram](docs/images/diagram_architecture.png)
+
+<details>
+<summary><b>Job lifecycle state machine</b> (click to expand)</summary>
+
+![Job lifecycle](docs/images/diagram_lifecycle.png)
+</details>
+
+<details>
+<summary><b>Entity-relationship diagram</b> (click to expand)</summary>
+
+![ER diagram](docs/images/diagram_er.png)
+</details>
 
 ## Features
 
