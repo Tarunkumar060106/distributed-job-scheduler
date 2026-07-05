@@ -288,6 +288,41 @@ input::placeholder { color: var(--faint); }
 .auth-box .switch { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 10px; }
 .auth-box .switch:hover { color: var(--ink); }
 
+/* ---------- demo accounts ---------- */
+
+.demo-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--faint);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 14px;
+}
+.demo-divider::before, .demo-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.demo-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 12px;
+}
+.demo-role { font-size: 0.76rem; font-weight: 600; color: var(--ink); }
+.demo-blurb { font-size: 0.68rem; color: var(--muted); font-weight: 400; }
+
 /* ---------- logs & chart ---------- */
 
 .logs {

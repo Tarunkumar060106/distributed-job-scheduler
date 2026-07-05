@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, getToken, setToken } from "./api";
 import JobDetail from "./pages/JobDetail";
 import Jobs from "./pages/Jobs";
@@ -33,8 +33,16 @@ export const useProject = () => {
   return { projectId: ws.projectId, orgId: ws.org?.id ?? null };
 };
 
+function signOut() {
+  setToken(null);
+  // Forget the workspace selection so the next user starts clean, and do a
+  // full reload: it resets all in-memory state and closes the WebSocket.
+  localStorage.removeItem("orgId");
+  localStorage.removeItem("projectId");
+  window.location.href = "/login";
+}
+
 function Sidebar() {
-  const navigate = useNavigate();
   const ws = useWorkspace();
   return (
     <nav className="sidebar">
@@ -71,7 +79,7 @@ function Sidebar() {
         </div>
       )}
       <a href="#" className="signout"
-         onClick={(e) => { e.preventDefault(); setToken(null); navigate("/login"); }}>
+         onClick={(e) => { e.preventDefault(); signOut(); }}>
         Sign out
       </a>
     </nav>

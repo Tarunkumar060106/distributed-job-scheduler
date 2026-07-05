@@ -131,7 +131,7 @@ export default function Jobs() {
         <table>
           <thead>
             <tr><th>Task</th><th>Status</th><th>Type</th><th>Priority</th>
-                <th>Attempt</th><th>Created</th><th>Error</th></tr>
+                <th>Attempt</th><th>Worker</th><th>Created</th><th>Error</th></tr>
           </thead>
           <tbody>
             {data?.items.map((job: any) => (
@@ -141,6 +141,7 @@ export default function Jobs() {
                 <td>{job.type}</td>
                 <td>{job.priority}</td>
                 <td>{job.attempt}/{job.max_attempts}</td>
+                <td className="muted">{job.worker_name ?? "—"}</td>
                 <td className="muted">{new Date(job.created_at).toLocaleTimeString()}</td>
                 <td className="muted" style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {job.last_error ?? ""}</td>
