@@ -288,6 +288,41 @@ input::placeholder { color: var(--faint); }
 .auth-box .switch { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 10px; }
 .auth-box .switch:hover { color: var(--ink); }
 
+/* ---------- demo accounts ---------- */
+
+.demo-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--faint);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 14px;
+}
+.demo-divider::before, .demo-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.demo-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 12px;
+}
+.demo-role { font-size: 0.76rem; font-weight: 600; color: var(--ink); }
+.demo-blurb { font-size: 0.68rem; color: var(--muted); font-weight: 400; }
+
 /* ---------- logs & chart ---------- */
 
 .logs {
@@ -316,6 +351,26 @@ input::placeholder { color: var(--faint); }
   transition: opacity 120ms ease;
 }
 .chart-bars .bar:hover { opacity: 0.5; }
+
+/* workspace switcher + payload editor */
+.workspace-picker { display: flex; flex-direction: column; gap: 6px; padding: 2px 12px 8px; }
+.workspace-picker select { width: 100%; font-size: 0.8rem; padding: 6px 8px; }
+.role-chip { color: var(--faint); font-size: 0.72rem; padding: 0 12px 10px; }
+.role-chip strong { color: var(--muted); }
+
+textarea.payload-editor {
+  width: 100%;
+  background: #1c1917;
+  color: #d6d3cd;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+textarea.payload-editor:focus { outline: none; border-color: var(--accent); }
 
 /* key-value tables on detail pages */
 .kv th { width: 130px; text-transform: none; letter-spacing: 0; font-size: 0.8rem; color: var(--muted); font-weight: 500; padding: 9px 10px; border-bottom: 1px solid var(--hairline); vertical-align: top; }

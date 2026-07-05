@@ -1,8 +1,9 @@
-# Distributed Job Scheduler
+# Meridian — Distributed Job Scheduler
 
-A production-inspired distributed job scheduling platform: REST API, horizontally
-scalable workers, a standby-capable scheduler, and a live web dashboard — built on
-FastAPI, PostgreSQL, and React.
+A production-inspired distributed job scheduling platform with a microservice
+backend: API gateway, Eureka-style service discovery, independently scalable
+domain services and workers, a standby-capable scheduler, and a live web
+dashboard — built on FastAPI, PostgreSQL, and React.
 
 ![Architecture](docs/architecture.md) · [ER diagram](docs/er-diagram.md) ·
 [Design decisions](docs/design-decisions.md) · [API docs](docs/api.md)
@@ -10,7 +11,15 @@ FastAPI, PostgreSQL, and React.
 ## Features
 
 - **Auth & multi-tenancy** — JWT auth; Users → Organizations → Projects → Queues,
-  with role-based access control (OWNER / ADMIN / MEMBER / VIEWER).
+  with role-based access control (OWNER / ADMIN / MEMBER / VIEWER), a workspace
+  switcher, and an organization admin page (members, roles, invites).
+- **Real job execution via a Handler SDK** — the platform is completely
+  generic; business logic lives in pluggable *handler packs* loaded from
+  `HANDLER_MODULES`. Payloads are schema-validated before execution, workers
+  advertise their capabilities to the registry, `GET /api/tasks` exposes the
+  fleet catalog, and deterministic failures (bad payload, 4xx, unknown task)
+  dead-letter immediately instead of retrying. Builtin handlers: `http_request`
+  (webhooks/APIs — verified against a live external API) and `send_email` (SMTP).
 - **Queues** — per-queue priority, fleet-wide concurrency limits, pause/resume,
   configurable retry policies, live statistics.
 - **Job types** — immediate, delayed, scheduled, recurring (cron), and batch.
@@ -26,6 +35,9 @@ FastAPI, PostgreSQL, and React.
   pagination, execution logs, one-click retry/requeue, **live WebSocket updates**.
 - **Distributed locking** — multiple scheduler instances coordinate through a
   Postgres advisory lock (active/standby high availability).
+- **Microservice architecture** — an API gateway routes to identity / job /
+  monitoring services discovered through a Eureka-style registry with lease
+  heartbeats, client-side round-robin load balancing, and instance failover.
 
 ## Quick start (Docker)
 
@@ -33,26 +45,31 @@ FastAPI, PostgreSQL, and React.
 docker compose up -d --build
 ```
 
-| Service   | URL                          |
-|-----------|------------------------------|
-| Dashboard | http://localhost:5173        |
-| API       | http://localhost:8000        |
-| Swagger   | http://localhost:8000/docs   |
-| Postgres  | localhost:5433 (host port)   |
+| Service          | URL                                   |
+|------------------|---------------------------------------|
+| Dashboard        | http://localhost:5173                 |
+| API Gateway      | http://localhost:8000                 |
+| Service Registry | http://localhost:8761/registry/services |
+| Service catalog  | http://localhost:8000/api/gateway/services |
+| Postgres         | localhost:5433 (host port)            |
+
+This starts: `postgres`, `registry`, `gateway`, `identity-service`,
+`job-service` ×2, `monitoring-service`, `worker` ×2, `scheduler`, `frontend`.
 
 Register an account in the dashboard, create a queue, and enqueue demo jobs
 (`echo`, `sleep`, `send_email`, `flaky`, `always_fail`) straight from the Jobs page.
 
-Scale the worker fleet:
+Things worth trying:
 
 ```bash
-docker compose up -d --scale worker=4
-```
+# Scale services independently
+docker compose up -d --scale worker=4 --scale job-service=3
 
-Kill a worker mid-job to watch the reaper reclaim and retry its jobs:
-
-```bash
+# Kill a worker mid-job — the reaper reclaims and retries its jobs
 docker kill distributed-job-scheduler-worker-1
+
+# Kill an API replica — the gateway fails over with zero dropped requests
+docker kill distributed-job-scheduler-job-service-2
 ```
 
 ## Local development
@@ -83,10 +100,11 @@ cd backend
 pytest tests -q
 ```
 
-27 tests cover the concurrency-critical paths: race-free claiming under 10
+32 tests cover the concurrency-critical paths: race-free claiming under 10
 concurrent claimers, per-queue concurrency caps, priority ordering, retry
 backoff strategies, dead-letter + requeue transitions, dead-worker reaping,
-cron materialization, API validation, pagination, idempotency, and RBAC.
+cron materialization, API validation, pagination, idempotency, RBAC, service
+registry lease lifecycle, and gateway routing rules.
 Tests run against a dedicated `scheduler_test` database (created automatically).
 
 ## Repository layout
@@ -94,7 +112,11 @@ Tests run against a dedicated `scheduler_test` database (created automatically).
 ```
 backend/
   app/
-    main.py            FastAPI app (REST + WebSocket)
+    gateway.py         API gateway: routing, discovery LB, retry, WS relay
+    registry.py        Eureka-style service registry
+    discovery.py       registry client (register, renew lease, resolve)
+    microservice.py    service entrypoint (SERVICE_NAME selects routers)
+    main.py            all-in-one app (tests + local dev)
     worker.py          worker service entrypoint
     scheduler.py       scheduler/reaper service entrypoint
     models.py          SQLAlchemy schema (12 entities)
@@ -102,7 +124,8 @@ backend/
     routers/           API endpoints
     services/          claiming, retry, lifecycle logic
   tests/
-frontend/              React + Vite dashboard
+frontend/              React + Vite dashboard ("Meridian")
 docs/                  architecture, ER diagram, design decisions, API guide
-docker-compose.yml     postgres + api + worker×2 + scheduler + dashboard
+docker-compose.yml     postgres + registry + gateway + 3 domain services
+                       + worker×2 + scheduler + dashboard
 ```

@@ -35,6 +35,13 @@ def startup():
     # Schema is created idempotently at startup; a real deployment would use
     # Alembic migrations (documented trade-off in docs/design-decisions.md).
     Base.metadata.create_all(bind=engine)
+    from app.db import SessionLocal
+    from app.seed import seed_demo_data
+    db = SessionLocal()
+    try:
+        seed_demo_data(db)
+    finally:
+        db.close()
     logger.info("Schema ensured, API ready")
 
 

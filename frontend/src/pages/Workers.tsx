@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useProject } from "../App";
 import { Badge, PageHead } from "../ui";
@@ -41,15 +42,25 @@ export default function Workers() {
       <div className="panel">
         <table>
           <thead>
-            <tr><th>Name</th><th>Status</th><th>Concurrency</th><th>Processed</th>
-                <th>Failed</th><th>Last heartbeat</th></tr>
+            <tr><th>Name</th><th>Status</th><th>Running now</th><th>Slots</th>
+                <th>Processed</th><th>Failed</th><th>Last heartbeat</th></tr>
           </thead>
           <tbody>
             {workers.map((w) => (
               <tr key={w.id}>
                 <td>{w.name}</td>
                 <td><Badge status={w.status} /></td>
-                <td>{w.concurrency}</td>
+                <td>
+                  {w.current_jobs.length === 0
+                    ? <span className="muted">idle</span>
+                    : w.current_jobs.map((cj: any, i: number) => (
+                        <span key={cj.job_id}>
+                          {i > 0 && ", "}
+                          <Link to={`/jobs/${cj.job_id}`}>{cj.task}</Link>
+                        </span>
+                      ))}
+                </td>
+                <td>{w.current_jobs.length}/{w.concurrency}</td>
                 <td>{w.jobs_processed}</td>
                 <td>{w.jobs_failed}</td>
                 <td className="muted">{new Date(w.last_heartbeat_at).toLocaleTimeString()}</td>

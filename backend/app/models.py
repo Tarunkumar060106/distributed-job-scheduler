@@ -205,6 +205,11 @@ class Job(Base):
 
     executions: Mapped[list["JobExecution"]] = relationship(
         back_populates="job", cascade="all, delete-orphan", order_by="JobExecution.attempt")
+    worker: Mapped["Worker | None"] = relationship()
+
+    @property
+    def worker_name(self) -> str | None:
+        return self.worker.name if self.worker is not None else None
 
 
 class ScheduledJob(Base):
@@ -269,8 +274,13 @@ class JobExecution(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     job: Mapped["Job"] = relationship(back_populates="executions")
+    worker: Mapped["Worker | None"] = relationship()
     logs: Mapped[list["JobLog"]] = relationship(
         back_populates="execution", cascade="all, delete-orphan", order_by="JobLog.created_at")
+
+    @property
+    def worker_name(self) -> str | None:
+        return self.worker.name if self.worker is not None else None
 
 
 class JobLog(Base):

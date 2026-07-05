@@ -33,6 +33,14 @@ def database():
     _ensure_test_database()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    # TestClient does not run startup hooks outside a `with` block, so seed
+    # the demo accounts here the same way service startup does.
+    from app.seed import seed_demo_data
+    session = SessionLocal()
+    try:
+        seed_demo_data(session)
+    finally:
+        session.close()
     yield
 
 

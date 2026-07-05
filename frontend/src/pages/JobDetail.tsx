@@ -51,7 +51,7 @@ export default function JobDetail() {
             <tr><th>Attempts</th><td>{job.attempt} of {job.max_attempts}</td></tr>
             <tr><th>Priority</th><td>{job.priority}</td></tr>
             <tr><th>Run at</th><td>{new Date(job.run_at).toLocaleString()}</td></tr>
-            <tr><th>Worker</th><td>{job.worker_id ?? <span className="muted">unassigned</span>}</td></tr>
+            <tr><th>Worker</th><td>{job.worker_name ?? <span className="muted">unassigned</span>}</td></tr>
             <tr><th>Last error</th><td>{job.last_error
               ? <span style={{ color: "var(--red)" }}>{job.last_error}</span>
               : <span className="muted">—</span>}</td></tr>
@@ -73,7 +73,7 @@ export default function JobDetail() {
                     <td><Badge status={ex.status === "SUCCESS" ? "COMPLETED"
                       : ex.status === "RUNNING" ? "RUNNING"
                       : ex.status === "LOST" ? "DEAD" : "FAILED"} label={ex.status} /></td>
-                    <td className="muted">{ex.worker_id?.slice(0, 8) ?? "—"}</td>
+                    <td className="muted">{ex.worker_name ?? ex.worker_id?.slice(0, 8) ?? "—"}</td>
                     <td className="muted">{new Date(ex.started_at).toLocaleTimeString()}</td>
                     <td>{ex.duration_ms ? `${ex.duration_ms.toFixed(0)} ms` : "—"}</td>
                     <td className="muted">{ex.error ?? ""}</td>

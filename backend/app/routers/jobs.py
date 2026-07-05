@@ -23,6 +23,46 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def fleet_task_catalog() -> list[dict]:
+    """The union of handler catalogs across the worker fleet.
+
+    Microservice mode: aggregated from worker registrations in the service
+    registry. Monolith/test mode: the locally loaded handler packs.
+    """
+    from app import discovery
+    if discovery.enabled():
+        client = discovery.DiscoveryClient()
+        seen: dict[str, dict] = {}
+        for instance in client.instances("worker-service"):
+            for entry in instance.get("meta", {}).get("handlers", []):
+                seen.setdefault(entry["name"], entry)
+        return sorted(seen.values(), key=lambda e: e["name"])
+    from app.handler_sdk import catalog
+    from app.handlers import load_handler_packs
+    load_handler_packs()
+    return catalog()
+
+
+def validate_task_exists(task: str) -> None:
+    """Reject jobs no worker can execute. Skipped when the fleet is unknown
+    (no workers registered yet) so enqueueing before workers boot still works."""
+    known = fleet_task_catalog()
+    if not known:
+        return
+    names = {entry["name"] for entry in known}
+    if task not in names:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"No worker in the fleet has a handler for task '{task}'. "
+            f"Available tasks: {sorted(names)}")
+
+
+@router.get("/tasks")
+def list_tasks(user: User = Depends(get_current_user)):
+    """Handler catalog: what the worker fleet can execute right now."""
+    return fleet_task_catalog()
+
+
 def build_job(queue: Queue, body: JobCreate, batch_id: uuid.UUID | None = None) -> Job:
     run_at = utcnow()
     status_ = JobStatus.QUEUED
@@ -60,6 +100,7 @@ def create_job(queue_id: uuid.UUID, body: JobCreate,
     if body.type == JobType.BATCH:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "Use POST /queues/{id}/jobs/batch for batch jobs")
+    validate_task_exists(body.task)
 
     # Idempotent creation: same key on the same queue returns the existing job.
     if body.idempotency_key:
@@ -78,6 +119,8 @@ def create_job(queue_id: uuid.UUID, body: JobCreate,
 def create_batch(queue_id: uuid.UUID, body: BatchJobCreate,
                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     queue = get_queue_checked(db, user, queue_id, OrgRole.MEMBER)
+    for item in body.jobs:
+        validate_task_exists(item.task)
     batch_id = uuid.uuid4()
     jobs = []
     for item in body.jobs:
@@ -99,6 +142,7 @@ def create_recurring(queue_id: uuid.UUID, body: JobCreate,
     if not body.cron_expr or not croniter.is_valid(body.cron_expr):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "A valid cron_expr is required for recurring jobs")
+    validate_task_exists(body.task)
     next_run = croniter(body.cron_expr, utcnow()).get_next(datetime)
     scheduled = ScheduledJob(
         queue_id=queue.id, task=body.task, payload=body.payload,

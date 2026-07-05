@@ -48,6 +48,14 @@ registration = ServiceRegistration(
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    if service_name == "identity-service":
+        from app.db import SessionLocal
+        from app.seed import seed_demo_data
+        db = SessionLocal()
+        try:
+            seed_demo_data(db)
+        finally:
+            db.close()
     registration.start()
     logger.info("%s ready", service_name)
 
