@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/ui.tsx","./src/pages/jobdetail.tsx","./src/pages/jobs.tsx","./src/pages/login.tsx","./src/pages/overview.tsx","./src/pages/queues.tsx","./src/pages/workers.tsx"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/ui.tsx","./src/pages/jobdetail.tsx","./src/pages/jobs.tsx","./src/pages/login.tsx","./src/pages/organization.tsx","./src/pages/overview.tsx","./src/pages/queues.tsx","./src/pages/workers.tsx"],"version":"5.9.3"}

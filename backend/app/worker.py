@@ -13,9 +13,12 @@ import threading
 import time
 import uuid
 
+from pydantic import ValidationError
+
 from app.config import settings
 from app.db import Base, SessionLocal, engine
-from app.handlers import HANDLERS
+from app.handler_sdk import HandlerContext, PermanentFailure, get_handler
+from app.handlers import REGISTRY  # noqa: F401 — importing loads handler packs
 from app.models import Job, Worker, WorkerHeartbeat, WorkerStatus
 from app.services.claiming import claim_jobs
 from app.services.lifecycle import complete_job, fail_job, start_execution
@@ -88,14 +91,18 @@ class WorkerService:
                 log_line(db, job, message, level=level, execution_id=execution.id)
                 db.commit()
 
-            handler = HANDLERS.get(job.task)
             try:
-                if handler is None:
-                    raise LookupError(f"No handler registered for task '{job.task}'")
-                result = handler(job.payload or {}, log_fn)
+                result = self._run_handler(job, log_fn)
                 complete_job(db, job, execution, result)
                 self._bump_counters(db, failed=False)
-            except Exception as exc:  # noqa: BLE001 — any handler error is a job failure
+            except (PermanentFailure, LookupError, ValidationError) as exc:
+                # Deterministic failures: retrying cannot help. Consume all
+                # remaining attempts so fail_job dead-letters immediately.
+                job.attempt = job.max_attempts
+                fail_job(db, job, execution,
+                         f"[permanent] {type(exc).__name__}: {exc}")
+                self._bump_counters(db, failed=True)
+            except Exception as exc:  # noqa: BLE001 — transient: retry policy applies
                 fail_job(db, job, execution, f"{type(exc).__name__}: {exc}")
                 self._bump_counters(db, failed=True)
             db.commit()
@@ -106,6 +113,37 @@ class WorkerService:
             db.close()
             with self.inflight_lock:
                 self.inflight.discard(job_id)
+
+    def _run_handler(self, job: Job, log_fn) -> dict | None:
+        """Resolve, validate, and run a handler under the job's timeout.
+
+        The platform stays generic here: everything task-specific comes from
+        the HandlerSpec that a handler pack registered via the SDK.
+        """
+        spec = get_handler(job.task)
+        if spec is None:
+            raise LookupError(
+                f"No handler registered for task '{job.task}' on this worker")
+
+        payload: object = job.payload or {}
+        if spec.payload_model is not None:
+            payload = spec.payload_model(**(job.payload or {}))  # ValidationError -> DLQ
+
+        context = HandlerContext(job_id=job.id, attempt=job.attempt,
+                                 max_attempts=job.max_attempts, log_fn=log_fn)
+
+        # Enforce the job timeout. Python threads cannot be killed, so on
+        # timeout the runaway thread is abandoned and the job fails — the
+        # trade-off is documented in docs/design-decisions.md.
+        sandbox = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = sandbox.submit(spec.fn, payload, context)
+        try:
+            return future.result(timeout=job.timeout_s)
+        except concurrent.futures.TimeoutError:
+            raise RuntimeError(
+                f"Timed out after {job.timeout_s}s (handler abandoned)") from None
+        finally:
+            sandbox.shutdown(wait=False)
 
     def _bump_counters(self, db, failed: bool) -> None:
         worker = db.get(Worker, self.worker_id)
@@ -120,12 +158,15 @@ class WorkerService:
         Base.metadata.create_all(bind=engine)
         self.register()
 
-        # Announce ourselves in the service registry (observability; workers
-        # take no inbound traffic, so port is informational only).
+        # Announce ourselves in the service registry, including the handler
+        # catalog this worker carries — enqueue-time validation and the
+        # dashboard's task picker are driven by these capabilities.
         from app.discovery import ServiceRegistration
+        from app.handler_sdk import catalog
         registry_reg = ServiceRegistration(
             "worker-service", port=0,
-            meta={"name": self.name, "concurrency": self.concurrency})
+            meta={"name": self.name, "concurrency": self.concurrency,
+                  "handlers": catalog()})
         registry_reg.start()
 
         heartbeat = threading.Thread(target=self.heartbeat_loop, daemon=True)

@@ -30,6 +30,35 @@ every request or event-carried replication of identity data — real costs that
 buy nothing at this scale. The boundary that *matters* for correctness
 (atomic job claiming) is already a single-owner concern of the claim SQL.
 
+## 0.5 The Handler SDK: a generic platform executing registered business logic
+
+The scheduler never contains business logic. Work is defined by *handler
+packs* — plain Python modules that register functions through
+`app/handler_sdk.py`:
+
+- **Contract**: `@handler(name, payload_model=…, idempotent=…, example=…)`.
+  The payload model (Pydantic) is the schema; the platform validates payloads
+  *before* execution and publishes the JSON schema in the task catalog.
+- **Deployment, not code**: workers load packs from `HANDLER_MODULES`
+  (comma-separated import paths). A team ships `acme.billing_handlers` as a
+  pip package and points the env var at it — the platform is never modified.
+- **Capability discovery**: each worker advertises its handler catalog in its
+  service-registry registration. `GET /api/tasks` aggregates the fleet's
+  capabilities, the dashboard's task picker is built from it, and enqueue
+  rejects tasks no worker can run (skipped while the fleet is empty).
+- **Failure taxonomy**: exceptions are transient by default (retry policy
+  applies); `PermanentFailure`, unknown-handler, and payload-validation
+  errors consume all attempts and dead-letter immediately — retrying a
+  deterministic failure only burns resources and delays the alert.
+- **Timeouts**: each execution is bounded by the job's `timeout_s`. Python
+  threads cannot be killed, so a timed-out handler is abandoned (leaked until
+  it returns) and the job fails; a hard-kill guarantee requires process-based
+  execution, which is the documented next step for untrusted handlers.
+
+Builtin pack: `http_request` (generic webhook/API caller — 5xx/429 retry,
+other 4xx dead-letter) and `send_email` (real SMTP). Demo pack (`echo`,
+`sleep`, `flaky`, `always_fail`) stays deployable-optional for evaluation.
+
 ## 1. PostgreSQL as the queue (no Redis/RabbitMQ)
 
 **Decision:** jobs live in Postgres and workers claim them with

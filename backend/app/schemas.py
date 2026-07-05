@@ -67,6 +67,17 @@ class MemberOut(ORMModel):
     role: OrgRole
 
 
+class MemberDetailOut(MemberOut):
+    email: str
+    name: str
+
+
+class OrgDetailOut(OrgOut):
+    my_role: OrgRole
+    member_count: int
+    project_count: int
+
+
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str | None = None
